@@ -1,0 +1,261 @@
+"""
+RAID Log Excel Extractor
+========================
+This script extracts Issues, Risks, Actions, and Decisions from a JSON file
+and creates a formatted Excel file with separate tabs for each category.
+
+Prerequisites:
+--------------
+Run this command first:
+    pip install pandas openpyxl
+
+Usage:
+------
+    python extract_raid_to_excel.py
+"""
+
+import json
+import pandas as pd
+from datetime import datetime
+
+# Check if openpyxl is installed
+try:
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+except ImportError:
+    print("=" * 70)
+    print("ERROR: Required libraries not installed!")
+    print("=" * 70)
+    print("\nPlease run this command first:")
+    print("    pip install pandas openpyxl")
+    print("\nThen run this script again.")
+    print("=" * 70)
+    exit(1)
+
+# Load the JSON file
+try:
+    with open('Control RAID Page 1.json', 'r', encoding='utf-8') as f:
+        data = json.load(f)
+except FileNotFoundError:
+    print("=" * 70)
+    print("ERROR: JSON file not found!")
+    print("=" * 70)
+    print("\nMake sure 'Control RAID Page 1.json' is in the same folder as this script.")
+    print("=" * 70)
+    exit(1)
+
+# Initialize lists for each category
+issues_list = []
+risks_list = []
+actions_list = []
+decisions_list = []
+
+# Extract all items from all studies
+for doc in data.get('docs', []):
+    study = doc.get('study', '')
+    is_active = doc.get('isActive', False)
+    categories = doc.get('categories', {})
+    
+    # Extract Issues
+    for issue in categories.get('Issues', []):
+        issues_list.append({
+            'Study': study,
+            'Study_IsActive': is_active,
+            'Issue_ID': issue.get('id', ''),
+            'Name': issue.get('name', ''),
+            'Status': issue.get('status', ''),
+            'Priority': issue.get('priority', ''),
+            'Owner': issue.get('owner', ''),
+            'Created_At': issue.get('createdAt', ''),
+            'Created_By': issue.get('createdBy', ''),
+            'Due_Date': issue.get('dueDate', ''),
+            'Description': issue.get('description', ''),
+            'Resolution': issue.get('resolution', ''),
+            'Impact': issue.get('impact', ''),
+            'Updated_At': issue.get('updatedAt', ''),
+            'Updated_By': issue.get('updatedBy', ''),
+            'Comments': issue.get('comments', ''),
+        })
+    
+    # Extract Risks
+    for risk in categories.get('Risks', []):
+        risks_list.append({
+            'Study': study,
+            'Study_IsActive': is_active,
+            'Risk_ID': risk.get('id', ''),
+            'Name': risk.get('name', ''),
+            'Status': risk.get('status', ''),
+            'Priority': risk.get('priority', ''),
+            'Owner': risk.get('owner', ''),
+            'Created_At': risk.get('createdAt', ''),
+            'Created_By': risk.get('createdBy', ''),
+            'Due_Date': risk.get('dueDate', ''),
+            'Description': risk.get('description', ''),
+            'Mitigation': risk.get('mitigation', ''),
+            'Impact': risk.get('impact', ''),
+            'Probability': risk.get('probability', ''),
+            'Category': risk.get('category', ''),
+            'Updated_At': risk.get('updatedAt', ''),
+            'Updated_By': risk.get('updatedBy', ''),
+            'Comments': risk.get('comments', ''),
+        })
+    
+    # Extract Actions
+    for action in categories.get('Actions', []):
+        actions_list.append({
+            'Study': study,
+            'Study_IsActive': is_active,
+            'Action_ID': action.get('id', ''),
+            'Name': action.get('name', ''),
+            'Status': action.get('status', ''),
+            'Priority': action.get('priority', ''),
+            'Owner': action.get('owner', ''),
+            'Created_At': action.get('createdAt', ''),
+            'Created_By': action.get('createdBy', ''),
+            'Due_Date': action.get('dueDate', ''),
+            'Description': action.get('description', ''),
+            'Outcome': action.get('outcome', ''),
+            'Updated_At': action.get('updatedAt', ''),
+            'Updated_By': action.get('updatedBy', ''),
+            'Comments': action.get('comments', ''),
+        })
+    
+    # Extract Decisions
+    for decision in categories.get('Decisions', []):
+        decisions_list.append({
+            'Study': study,
+            'Study_IsActive': is_active,
+            'Decision_ID': decision.get('id', ''),
+            'Name': decision.get('name', ''),
+            'Status': decision.get('status', ''),
+            'Priority': decision.get('priority', ''),
+            'Owner': decision.get('owner', ''),
+            'Created_At': decision.get('createdAt', ''),
+            'Created_By': decision.get('createdBy', ''),
+            'Due_Date': decision.get('dueDate', ''),
+            'Description': decision.get('description', ''),
+            'Rationale': decision.get('rationale', ''),
+            'Impact': decision.get('impact', ''),
+            'Updated_At': decision.get('updatedAt', ''),
+            'Updated_By': decision.get('updatedBy', ''),
+            'Comments': decision.get('comments', ''),
+        })
+
+# Create DataFrames
+df_issues = pd.DataFrame(issues_list)
+df_risks = pd.DataFrame(risks_list)
+df_actions = pd.DataFrame(actions_list)
+df_decisions = pd.DataFrame(decisions_list)
+
+# Convert date columns and REMOVE TIMEZONE INFO for Excel compatibility
+date_columns = ['Created_At', 'Due_Date', 'Updated_At']
+for df in [df_issues, df_risks, df_actions, df_decisions]:
+    for col in date_columns:
+        if col in df.columns:
+            # Convert to datetime and remove timezone information
+            df[col] = pd.to_datetime(df[col], errors='coerce')
+            if df[col].dtype == 'datetime64[ns, UTC]':
+                df[col] = df[col].dt.tz_localize(None)
+            elif hasattr(df[col].dtype, 'tz') and df[col].dtype.tz is not None:
+                df[col] = df[col].dt.tz_localize(None)
+
+# Create Excel file with formatting
+output_filename = f'RAID_Log_Extract_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
+
+# Define header colors for each category
+header_colors = {
+    'Issues': 'C00000',      # Red
+    'Risks': 'FF6600',       # Orange
+    'Actions': '0070C0',     # Blue
+    'Decisions': '00B050'    # Green
+}
+
+with pd.ExcelWriter(output_filename, engine='openpyxl') as writer:
+    sheets_data = {
+        'Issues': df_issues,
+        'Risks': df_risks,
+        'Actions': df_actions,
+        'Decisions': df_decisions
+    }
+    
+    for sheet_name, df in sheets_data.items():
+        df.to_excel(writer, sheet_name=sheet_name, index=False)
+        worksheet = writer.sheets[sheet_name]
+        
+        # Header formatting
+        header_fill = PatternFill(start_color=header_colors[sheet_name], 
+                                 end_color=header_colors[sheet_name], 
+                                 fill_type="solid")
+        header_font = Font(bold=True, color="FFFFFF", size=11)
+        border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+        
+        # Apply header formatting
+        for cell in worksheet[1]:
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            cell.border = border
+        
+        # Auto-adjust column widths and apply borders
+        for idx, column in enumerate(worksheet.columns, 1):
+            max_length = 0
+            column_letter = get_column_letter(idx)
+            
+            for cell in column:
+                cell.border = border
+                cell.alignment = Alignment(vertical='top', wrap_text=True)
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            
+            adjusted_width = min(max_length + 2, 60)
+            worksheet.column_dimensions[column_letter].width = adjusted_width
+        
+        # Freeze first row
+        worksheet.freeze_panes = 'A2'
+        worksheet.row_dimensions[1].height = 30
+
+# Print summary
+print("=" * 70)
+print("🎯 RAID LOG EXTRACTION COMPLETE")
+print("=" * 70)
+print(f"📁 Output file: {output_filename}")
+print(f"📅 Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} UTC")
+print(f"👤 Generated by: philippedevomsanofi")
+print(f"\n📊 Extraction Summary:")
+print(f"  • Issues:    {len(issues_list):>4} records")
+print(f"  • Risks:     {len(risks_list):>4} records")
+print(f"  • Actions:   {len(actions_list):>4} records")
+print(f"  • Decisions: {len(decisions_list):>4} records")
+print(f"  {'─' * 30}")
+print(f"  • TOTAL:     {len(issues_list) + len(risks_list) + len(actions_list) + len(decisions_list):>4} records")
+print("=" * 70)
+
+# Print details for each category
+categories_info = [
+    ('Issues', df_issues),
+    ('Risks', df_risks),
+    ('Actions', df_actions),
+    ('Decisions', df_decisions)
+]
+
+for category_name, df in categories_info:
+    if not df.empty:
+        print(f"\n📋 {category_name} Tab:")
+        print(f"  • Columns: {len(df.columns)}")
+        print(f"  • Records: {len(df)}")
+    else:
+        print(f"\n📋 {category_name} Tab:")
+        print(f"  • No records found")
+
+print("\n" + "=" * 70)
+print("✅ Excel file created successfully!")
+print(f"📂 Location: /workspaces/Risks/{output_filename}")
+print("=" * 70)
